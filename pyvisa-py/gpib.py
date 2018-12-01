@@ -37,15 +37,25 @@ except ImportError as e:
     raise
 
 
+def _find_boards():
+    for board in range(15):
+        try:
+            if gpib.ask(board, 1) == board:
+                yield board
+        except gpib.GpibError:
+            pass
+
+
 def _find_listeners():
     """Find GPIB listeners.
     """
-    for i in range(31):
-        try:
-            if gpib.listener(BOARD, i) and gpib.ask(BOARD, 1) != i:
-                yield i
-        except gpib.GpibError as e:
-            logger.debug("GPIB error in _find_listeners(): %s", repr(e))
+    for board in _find_boards():
+        for pad in range(31):
+            try:
+                if gpib.listener(board, pad) and gpib.ask(board, 1) != pad:
+                    yield (board, pad)
+            except gpib.GpibError as e:
+                logger.debug("GPIB error in _find_listeners(): %s", repr(e))
 
 
 StatusCode = constants.StatusCode
@@ -64,7 +74,7 @@ class GPIBSession(Session):
 
     @staticmethod
     def list_resources():
-        return ['GPIB0::%d::INSTR' % pad for pad in _find_listeners()]
+        return ['GPIB%d::%d::INSTR' % (minor, pad) for minor, pad in _find_listeners()]
 
     @classmethod
     def get_low_level_info(cls):
